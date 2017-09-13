@@ -1,0 +1,27 @@
+{
+  "name": "auth0-import",
+  "version": "0.1.0",
+  "description": "Allows to import users into Auth0 using JSON files",
+  "main": "index.js",
+  "author": "CriGoT (crigot@hotmail.com)",
+  "license": "MIT",
+  "bin" :{
+    "auth0-import" : "bin/auth0-import.js"
+  },
+  "scripts" : {
+    "build" : "babel index.js -d dist",
+    "start" : "npm run build && node bin/auth0-import.js"
+  },
+  "dependencies": {
+    "commander": "^2.11.0",
+    "request": "^2.81.0",
+    "request-promise-native": "^1.0.4"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-es2015": "^6.24.1",
+    "eslint": "4.3",
+    "eslint-config-auth0-base": "^13.1.0",
+    "eslint-plugin-import": "^2.7.0"
+  }
+}
