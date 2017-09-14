@@ -12,6 +12,8 @@ const callApi = Symbol('callApi');
 const getConnection = Symbol('getConnection');
 const postUserImport = Symbol('postUserImport');
 const waitAndCheck = Symbol('waitAndCheck');
+const resetTokenTimeout = Symbol('resetTokenTimeout');
+const privateState = Symbol('privateState');
 
 /* Constants */
 const MS_IN_SEC = 1000;
@@ -48,39 +50,43 @@ export default class Auth0Importer {
    * @memberof Auth0Importer
    */
   constructor({ clientId, clientSecret, domain, logger }) {
-    this.domain = domain;
-    this.clientId = clientId;
-    this.apiUrl = `https://${this.domain}/api/v2/`;
     this.logger = logger || { info: NOOP, error: NOOP, debug: NOOP, warn: NOOP };
-    this.authClient = new AuthenticationClient({
+    this[privateState] = {};
+    this[privateState].clientId = clientId;
+    this[privateState].apiUrl = `https://${domain}/api/v2/`;
+    this[privateState].authClient = new AuthenticationClient({
       domain,
       clientId,
       clientSecret
     });
+  }
 
-    this[getManagementToken]();
+  [resetTokenTimeout]() {
+    clearTimeout(this[privateState].tokenTimeout);
   }
 
   [getManagementToken]() {
-    this.tokenPromise = this.authClient
+    this[privateState].tokenPromise = this[privateState].authClient
       .clientCredentialsGrant({
-        audience: this.apiUrl,
+        audience: this[privateState].apiUrl,
         scope: 'create:users read:connections'
       })
       .then((response) => {
         this.logger.debug(`API ==> Management API access token retrieved. Access token valid for ${response.expires_in} seconds`);
-        // setTimeout(this[getManagementToken], (response.expires_in - RENEW_INTERVAL) * MS_IN_SEC);
+        this[privateState].tokenTimeout = setTimeout(
+          () => this[getManagementToken](),
+          Math.min((response.expires_in - RENEW_INTERVAL) * MS_IN_SEC, 2147483647));
         return response.access_token;
       });
   }
 
   [callApi](options) {
     this.logger.debug(`API ==> Invoking Management Api endpoint ${options.method || 'GET'} - ${options.uri}`);
-    return this.tokenPromise
+    return this[privateState].tokenPromise
       .then(token => rp(Object.assign({},
         options,
         {
-          uri: `${this.apiUrl}${options.uri}`,
+          uri: `${this[privateState].apiUrl}${options.uri}`,
           headers: Object.assign({
             Authorization: `Bearer ${token}`
           }, options.headers)
@@ -100,7 +106,7 @@ export default class Auth0Importer {
       .then((connections) => {
         if (!connections || connections.length === 0) throw new Error(`Connection ${name} was not found`);
         if (connections[0].strategy !== 'auth0') throw new Error(`Connection ${name} is not a database connection`);
-        if (connections[0].enabled_clients.indexOf(this.clientId) < 0) throw new Error(`Connection ${name} is not enabled for client ${this.clientId}`);
+        if (connections[0].enabled_clients.indexOf(this[privateState].clientId) < 0) throw new Error(`Connection ${name} is not enabled for client ${this[privateState].clientId}`);
 
         this.logger.info('Connection ==> successfully retrieved and validated');
         this.logger.debug(connections);
@@ -181,6 +187,8 @@ export default class Auth0Importer {
 
     if (!files || files.length === 0) return Promise.resolve({});
 
+    // we initialize the token
+    this[getManagementToken]();
     this.logger.info('Enumerating all files');
 
     return Promise.all(files.map(readFiles))
@@ -188,6 +196,7 @@ export default class Auth0Importer {
         .reduce((f, current) => f.concat(current), [])
         .reduce(this[postUserImport].bind(this), this[getConnection](connection, upsert, email))
         .then((results) => {
+          this[resetTokenTimeout]();
           if (results.files.some(f => f.errors.length > 0)) {
             this.logger.warn(`Finished importing ${results.files.length} files. Some files had errors`);
           } else {
