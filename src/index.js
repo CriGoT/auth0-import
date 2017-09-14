@@ -10,7 +10,8 @@ program
   .version('0.1.0')
   .usage('[options] <file1 file2 pattern ...>')
   .option('-v,--verbose', 'Write aditional information into the output')
-  .option('-c,--configFile configuration.json','Specifies a JSON  configuration file. Command line options will override the config file options')
+  .option('-c,--configFile <configuration.json>','Specifies a JSON  configuration file. Command line options will override the config file options')
+  .option('-o,--out <results.json>','Name of the file where the detailed results will be stored')
   .option('--auth0domain <*.auth0.com>', 'Auth0 domain where the user accounts will be imported ')
   .option('--connectionName <name>', 'Name of the connection into where the users will be imported')
   .option('--clientId <client ID>','Client ID to be used by auth0-import to connect to Auth0')
@@ -28,6 +29,53 @@ const printHelpAndExit = (exitCode, message = null) => {
   if (message) process.stderr.write(`${message}\n`);
   program.outputHelp();
   process.exit(exitCode || 0);
+};
+
+const addTime = display => (...params) => {
+  display(`[${new Date().toISOString()}]`, ...params);
+};
+
+const displayResults = (results) => {
+  const failedFiles = results.files.filter(f => f.result.summary.failed > 0);
+
+  console.log(`\n\nTime taken: \t\t\t\t ${(results.endTime - results.startTime) / 1000} seconds`);
+  console.log('\n\nUsers Imported\n');
+  console.log(`\tUsers inserted: \t\t ${results.files.reduce((sum, f) => f.result.summary.inserted + sum, 0)}`);
+  console.log(`\tUsers updated: \t\t\t ${results.files.reduce((sum, f) => f.result.summary.updated + sum, 0)}`);
+  console.log(`\tUsers failed: \t\t\t ${results.files.reduce((sum, f) => f.result.summary.failed + sum, 0)}`);
+  console.log(`\n\tTotal Users: \t\t\t ${results.files.reduce((sum, f) => f.result.summary.inserted + f.result.summary.updated + f.result.summary.failed + sum, 0)}`);
+  console.log('\n\nFiles Processed\n');
+  console.log(`\tFiles processed without errors:  ${results.files.length - failedFiles.length}`);
+  console.log(`\tFiles processed with errors: \t ${failedFiles.length}`);
+  console.log(`\n\tTotal Number of Files: \t\t ${results.files.length}`);
+
+  if (failedFiles.length > 0) {
+    console.log('\n\Files with errors:');
+    failedFiles.forEach(f => console.log(`\t${f.name} [${f.errors.length} errors]`));
+  }
+  console.log('\n');
+  return results;
+};
+
+
+const displayError = (err) => {
+  console.error(`An error occured while trying to import the files: ${err}`);
+  process.exit(-1);
+};
+
+const saveResults = (fileName) => {
+  if (!fileName) return Promise.resolve();
+
+  return results => new Promise((resolve, reject) => {
+    try {
+      fs.writeFileSync(fileName, JSON.stringify(results));
+      console.log(`Detailed results saved to ${fileName}\n`)
+      resolve(results);
+    } catch (e) {
+      process.stderr.write(`Unable to write results file: ${e}`);
+      reject(e);
+    }
+  });
 };
 
 /**
@@ -99,14 +147,20 @@ export default class Auth0ImporterCli {
         return new Auth0Importer({
           domain: this.config.auth0domain,
           clientId: this.config.clientId,
-          clientSecret: this.config.clientSecret
+          clientSecret: this.config.clientSecret,
+          logger: {
+            log: addTime(console.log),
+            error: addTime(console.log),
+            debug: addTime(this.config.verbose ? console.log : () => {})
+          }
         }).import({
           connection: this.config.connectionName,
           upsert: this.config.upsert,
           email: this.config.email
         }, this.config.args)
-          .then((results) => console.log(util.inspect(results, false, null)))
-          .catch(console.log);
+          .then(displayResults)
+          .then(saveResults(this.config.out))
+          .catch(displayError);
       })
       .catch(e => printHelpAndExit(-1, e.toString()));
   }
