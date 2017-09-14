@@ -51,7 +51,7 @@ export default class Auth0Importer {
     this.domain = domain;
     this.clientId = clientId;
     this.apiUrl = `https://${this.domain}/api/v2/`;
-    this.logger = logger || { info: NOOP, error: NOOP, debug: NOOP };
+    this.logger = logger || { info: NOOP, error: NOOP, debug: NOOP, warn: NOOP };
     this.authClient = new AuthenticationClient({
       domain,
       clientId,
@@ -122,15 +122,20 @@ export default class Auth0Importer {
       this.logger.debug(`File: ${name} ==> Job status response ${resultString}`);
       const result = JSON.parse(resultString);
       if (result.status !== AUTH0_JOB_STATUS_PENDING) {
-        this.logger.info(`File: ${name} ==> Import job finished`);
         return this[callApi]({ uri: `jobs/${result.id}/errors` })
-          .then((jobResult) => {
-            this.logger.debug(`File: ${name} ==> Job error details response ${jobResult}`);
-            stats.files.push(Object.assign({ name, result }, { errors: JSON.parse(jobResult) }));
+          .then((errorsString) => {
+            this.logger.debug(`File: ${name} ==> Job error details response ${errorsString}`);
+            const errors = JSON.parse(errorsString);
+            if (errors && errors.length > 0) {
+              this.logger.warn(`File: ${name} ==> Import job finished with errors`);
+            } else {
+              this.logger.info(`File: ${name} ==> Import job finished`);
+            }
+            stats.files.push(Object.assign({ name, result }, { errors }));
             return stats;
           });
       }
-      this.logger.info(`File: ${name} ==> Still processing. Will check again in ${WAIT_INTERVAL / 1000} seconds`);
+      this.logger.debug(`File: ${name} ==> Still processing. Will check again in ${WAIT_INTERVAL / 1000} seconds`);
 
       return new Promise(resolve => setTimeout(resolve, WAIT_INTERVAL))
         .then(() => this[callApi]({ uri: `jobs/${result.id}` }))
@@ -183,7 +188,11 @@ export default class Auth0Importer {
         .reduce((f, current) => f.concat(current), [])
         .reduce(this[postUserImport].bind(this), this[getConnection](connection, upsert, email))
         .then((results) => {
-          this.logger.info(`Finished importing ${results.files.length} files`);
+          if (results.files.some(f => f.errors.length > 0)) {
+            this.logger.warn(`Finished importing ${results.files.length} files. Some files had errors`);
+          } else {
+            this.logger.info(`Finished importing ${results.files.length} files`);
+          }
           return Object.assign(results, {
             endTime: Date.now()
           });
