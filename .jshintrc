@@ -5,10 +5,10 @@
    */
 
   // Define globals exposed by modern browsers.
-  "browser": true,
+  "browser": false,
 
   // Define globals exposed by jQuery.
-  "jquery": true,
+  "jquery": false,
 
   // Define globals exposed by Node.js.
   "node": true,
@@ -35,7 +35,7 @@
   "latedef": true,
 
   // Enforce line length to 100 characters
-  "maxlen": 100,
+  "maxlen": 160,
 
   // Require capitalized names for constructor functions.
   "newcap": true,
@@ -44,7 +44,7 @@
   "quotmark": "single",
 
   // Enforce placing 'use strict' at the top function scope
-  "strict": true,
+  "strict": false,
 
   // Prohibit use of explicitly undeclared variables.
   "undef": true,

@@ -1,4 +1,3 @@
-'use strict';
 
 import pino from 'pino';
 import program from 'commander';
@@ -10,11 +9,11 @@ program
   .version('0.1.0')
   .usage('[options] <file1 file2 pattern ...>')
   .option('-v,--verbose', 'Write aditional information into the output')
-  .option('-c,--configFile <configuration.json>','Specifies a JSON  configuration file. Command line options will override the config file options')
-  .option('-o,--out <results.json>','Name of the file where the detailed results will be stored')
+  .option('-c,--configFile <configuration.json>', 'Specifies a JSON  configuration file. Command line options will override the config file options')
+  .option('-o,--out <results.json>', 'Name of the file where the detailed results will be stored')
   .option('--auth0domain <*.auth0.com>', 'Auth0 domain where the user accounts will be imported ')
   .option('--connectionName <name>', 'Name of the connection into where the users will be imported')
-  .option('--clientId <client ID>','Client ID to be used by auth0-import to connect to Auth0')
+  .option('--clientId <client ID>', 'Client ID to be used by auth0-import to connect to Auth0')
   .option('--clientSecret <client Secret>', 'Client Secret to be used by auth0-import to call the Management API')
   .option('--upsert', 'Files will not only create users but also update existing ones based on email');
 
@@ -31,26 +30,27 @@ const printHelpAndExit = (exitCode, message = null) => {
   process.exit(exitCode || 0);
 };
 
-const addTime = display => (...params) => {
-  display(`[${new Date().toISOString()}]`, ...params);
-};
-
 const displayResults = (results) => {
+  /* eslint no-console: "off" */
+
   const failedFiles = results.files.filter(f => f.result.summary.failed > 0);
+  const usersInserted = results.files.reduce((sum, f) => f.result.summary.inserted + sum, 0);
+  const usersUpdated = results.files.reduce((sum, f) => f.result.summary.updated + sum, 0);
+  const usersFailed = failedFiles.reduce((sum, f) => f.result.summary.failed + sum, 0);
 
   console.log(`\n\nTime taken: \t\t\t\t ${(results.endTime - results.startTime) / 1000} seconds`);
   console.log('\n\nUsers Imported\n');
-  console.log(`\tUsers inserted: \t\t ${results.files.reduce((sum, f) => f.result.summary.inserted + sum, 0)}`);
-  console.log(`\tUsers updated: \t\t\t ${results.files.reduce((sum, f) => f.result.summary.updated + sum, 0)}`);
-  console.log(`\tUsers failed: \t\t\t ${results.files.reduce((sum, f) => f.result.summary.failed + sum, 0)}`);
-  console.log(`\n\tTotal Users: \t\t\t ${results.files.reduce((sum, f) => f.result.summary.inserted + f.result.summary.updated + f.result.summary.failed + sum, 0)}`);
+  console.log(`\tUsers inserted: \t\t ${usersInserted}`);
+  console.log(`\tUsers updated: \t\t\t ${usersUpdated}`);
+  console.log(`\tUsers failed: \t\t\t ${usersFailed}`);
+  console.log(`\n\tTotal Users: \t\t\t ${usersInserted + usersUpdated + usersFailed}`);
   console.log('\n\nFiles Processed\n');
   console.log(`\tFiles processed without errors:  ${results.files.length - failedFiles.length}`);
   console.log(`\tFiles processed with errors: \t ${failedFiles.length}`);
   console.log(`\n\tTotal Number of Files: \t\t ${results.files.length}`);
 
   if (failedFiles.length > 0) {
-    console.log('\n\Files with errors:');
+    console.log('\nFiles with errors:');
     failedFiles.forEach(f => console.log(`\t${f.name} [${f.errors.length} errors]`));
   }
   console.log('\n');
@@ -69,7 +69,7 @@ const saveResults = (fileName) => {
   return results => new Promise((resolve, reject) => {
     try {
       fs.writeFileSync(fileName, JSON.stringify(results));
-      console.log(`Detailed results saved to ${fileName}\n`)
+      console.log(`Detailed results saved to ${fileName}\n`);
       resolve(results);
     } catch (e) {
       process.stderr.write(`Unable to write results file: ${e}`);
@@ -83,22 +83,20 @@ const saveResults = (fileName) => {
  *
  * @param {string} path
  */
-const readConfigFile = (path) => {
-  return new Promise((resolve, reject) => {
-    const config = {};
+const readConfigFile = path => new Promise((resolve, reject) => {
+  const config = {};
 
-    if (path) {
-      try {
-        const configString = fs.readFileSync(path);
-        Object.assign(config, JSON.parse(configString));
-      } catch (e) {
-        process.stderr.write(`Unable to read configuration file: ${e}`);
-        reject(e);
-      }
+  if (path) {
+    try {
+      const configString = fs.readFileSync(path);
+      Object.assign(config, JSON.parse(configString));
+    } catch (e) {
+      process.stderr.write(`Unable to read configuration file: ${e}`);
+      reject(e);
     }
-    resolve(config);
-  });
-};
+  }
+  resolve(config);
+});
 
 /**
  * Validates that all required information is available
@@ -109,9 +107,9 @@ const validateConfig = (config) => {
   if (!program.args || program.args.length === 0) printHelpAndExit(2, 'You must specify a file to import');
 
   if (!config.auth0domain) printHelpAndExit(3, 'You must specify the Auth0 domain where you want to import the users');
-  if (!config.clientId) printHelpAndExit(4, 'You must specify a client Id in either the configuration file or the command line');
-  if (!config.clientSecret) printHelpAndExit(5, 'You must specify a client  secret in either the configuration file, the command line or the AUTH0_CLIENT_SECRET environment variable');
-  if (!config.connectionName) printHelpAndExit(6, 'You must specify a connection name in either the configuration file or the command line');
+  if (!config.clientId) printHelpAndExit(4, 'You must specify a client Id in the configuration file or the command line');
+  if (!config.clientSecret) printHelpAndExit(5, 'You must specify a client secret in the configuration file, the command line or environment variable');
+  if (!config.connectionName) printHelpAndExit(6, 'You must specify a connection name in the configuration file or the command line');
 };
 
 /**

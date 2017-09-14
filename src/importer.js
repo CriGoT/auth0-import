@@ -1,10 +1,7 @@
-'use strict';
-
 import rp from 'request-promise-native';
 import { AuthenticationClient } from 'auth0';
 import glob from 'glob';
 import fs from 'fs';
-import pino from 'pino';
 
 /* Symbols created to use in private methods */
 const getManagementToken = Symbol('getManagementToken');
@@ -106,7 +103,9 @@ export default class Auth0Importer {
       .then((connections) => {
         if (!connections || connections.length === 0) throw new Error(`Connection ${name} was not found`);
         if (connections[0].strategy !== 'auth0') throw new Error(`Connection ${name} is not a database connection`);
-        if (connections[0].enabled_clients.indexOf(this[privateState].clientId) < 0) throw new Error(`Connection ${name} is not enabled for client ${this[privateState].clientId}`);
+        if (connections[0].enabled_clients.indexOf(this[privateState].clientId) < 0) {
+          throw new Error(`Connection ${name} is not enabled for client ${this[privateState].clientId}`);
+        }
 
         this.logger.info('Connection ==> successfully retrieved and validated');
         this.logger.debug(connections);
