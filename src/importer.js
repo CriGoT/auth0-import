@@ -112,13 +112,13 @@ export default class Auth0Importer {
         this.logger.debug(connections);
 
         return {
-          startTime: Date.now(),
+          startTime: new Date(),
           connection: {
             id: connections[0].id,
             name: connections[0].name
           },
-          upsert: !!upsert,
-          email: !!email,
+          upsert,
+          email,
           files: []
         };
       });
@@ -182,16 +182,17 @@ export default class Auth0Importer {
    * @param {Array} files - The files or patterns to be imported
    * @memberof Auth0Importer
    */
-  import({ connection, upsert, email }, files) {
+  import(options, files) {
+    const { connection, upsert, email } = Object.assign(options, { upsert: false, email: false });
     if (!connection || connection.length === 0) return Promise.reject(Error('You must specificy a connection name in options.connection'));
 
-    if (!files || files.length === 0) return Promise.resolve({});
-
+    this.logger.info('Starting import');
+    this.logger.debug(options, 'Parameters');
     // we initialize the token
     this[getManagementToken]();
     this.logger.info('Enumerating all files');
 
-    return Promise.all(files.map(readFiles))
+    return Promise.all((files || []).map(readFiles))
       .then(allFiles => allFiles
         .reduce((f, current) => f.concat(current), [])
         .reduce(this[postUserImport].bind(this), this[getConnection](connection, upsert, email))
@@ -203,7 +204,7 @@ export default class Auth0Importer {
             this.logger.info(`Finished importing ${results.files.length} files`);
           }
           return Object.assign(results, {
-            endTime: Date.now()
+            endTime: new Date()
           });
         }));
   }
