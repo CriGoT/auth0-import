@@ -72,7 +72,7 @@ export default class Auth0Importer {
       })
       .then((response) => {
         this.logger.debug(`API ==> Management API access token retrieved. Access token valid for ${response.expires_in} seconds`);
-        //setTimeout(this[getManagementToken].bind(this), Number((response.expires_in - RENEW_INTERVAL) * MS_IN_SEC));
+        setTimeout(this[getManagementToken], (response.expires_in - RENEW_INTERVAL) * MS_IN_SEC);
         return response.access_token;
       });
   }
