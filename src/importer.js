@@ -116,8 +116,8 @@ export default class Auth0Importer {
             id: connections[0].id,
             name: connections[0].name
           },
-          upsert,
-          email,
+          upsert: !!upsert,
+          email: !!email,
           files: []
         };
       });
@@ -182,7 +182,7 @@ export default class Auth0Importer {
    * @memberof Auth0Importer
    */
   import(options, files) {
-    const { connection, upsert, email } = Object.assign(options, { upsert: false, email: false });
+    const { connection, upsert, email } = Object.assign({ upsert: false, email: false }, options);
     if (!connection || connection.length === 0) return Promise.reject(Error('You must specificy a connection name in options.connection'));
 
     this.logger.info('Starting import');
