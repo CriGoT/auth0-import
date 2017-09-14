@@ -1,0 +1,16 @@
+[
+  {
+    "email": "crigot@hotmail.com",
+    "email_verified": true,
+    "user_metadata": {
+      "sample": "crigot"
+    }
+  },
+  {
+    "email": "crigot@outlook.com",
+    "email_verified": true,
+    "user_metadata": {
+      "sample": "CriGoT"
+    }
+  }
+]

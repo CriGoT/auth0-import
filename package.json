@@ -5,15 +5,17 @@
   "main": "index.js",
   "author": "CriGoT (crigot@hotmail.com)",
   "license": "MIT",
-  "bin" :{
-    "auth0-import" : "bin/auth0-import.js"
+  "bin": {
+    "auth0-import": "bin/auth0-import.js"
   },
-  "scripts" : {
-    "build" : "babel index.js -d dist",
-    "start" : "npm run build && node bin/auth0-import.js"
+  "scripts": {
+    "build": "babel index.js -d dist",
+    "start": "npm run build && node bin/auth0-import.js"
   },
   "dependencies": {
+    "auth0": "^2.7.0",
     "commander": "^2.11.0",
+    "glob": "^7.1.2",
     "request": "^2.81.0",
     "request-promise-native": "^1.0.4"
   },
