@@ -4,6 +4,7 @@ import rp from 'request-promise-native';
 import { AuthenticationClient } from 'auth0';
 import glob from 'glob';
 import fs from 'fs';
+import pino from 'pino';
 
 /* Symbols created to use in private methods */
 const getManagementToken = Symbol('getManagementToken');
@@ -50,11 +51,7 @@ export default class Auth0Importer {
     this.domain = domain;
     this.clientId = clientId;
     this.apiUrl = `https://${this.domain}/api/v2/`;
-    this.logger = {
-      log: (logger && logger.log) || NOOP,
-      error: (logger && logger.error) || NOOP,
-      debug: (logger && logger.debug) || NOOP
-    };
+    this.logger = logger || { info: NOOP, error: NOOP, debug: NOOP };
     this.authClient = new AuthenticationClient({
       domain,
       clientId,
@@ -72,7 +69,7 @@ export default class Auth0Importer {
       })
       .then((response) => {
         this.logger.debug(`API ==> Management API access token retrieved. Access token valid for ${response.expires_in} seconds`);
-        setTimeout(this[getManagementToken], (response.expires_in - RENEW_INTERVAL) * MS_IN_SEC);
+        // setTimeout(this[getManagementToken], (response.expires_in - RENEW_INTERVAL) * MS_IN_SEC);
         return response.access_token;
       });
   }
@@ -92,7 +89,7 @@ export default class Auth0Importer {
   }
 
   [getConnection](name, upsert, email) {
-    this.logger.log('Connection ==> Retrieving connection');
+    this.logger.info('Connection ==> Retrieving connection');
     return this[callApi]({
       method: 'GET',
       json: true,
@@ -105,7 +102,7 @@ export default class Auth0Importer {
         if (connections[0].strategy !== 'auth0') throw new Error(`Connection ${name} is not a database connection`);
         if (connections[0].enabled_clients.indexOf(this.clientId) < 0) throw new Error(`Connection ${name} is not enabled for client ${this.clientId}`);
 
-        this.logger.log('Connection ==> successfully retrieved and validated');
+        this.logger.info('Connection ==> successfully retrieved and validated');
         this.logger.debug(connections);
 
         return {
@@ -125,7 +122,7 @@ export default class Auth0Importer {
       this.logger.debug(`File: ${name} ==> Job status response ${resultString}`);
       const result = JSON.parse(resultString);
       if (result.status !== AUTH0_JOB_STATUS_PENDING) {
-        this.logger.log(`File: ${name} ==> Import job finished`);
+        this.logger.info(`File: ${name} ==> Import job finished`);
         return this[callApi]({ uri: `jobs/${result.id}/errors` })
           .then((jobResult) => {
             this.logger.debug(`File: ${name} ==> Job error details response ${jobResult}`);
@@ -133,7 +130,7 @@ export default class Auth0Importer {
             return stats;
           });
       }
-      this.logger.log(`File: ${name} ==> Still processing. Will check again in ${WAIT_INTERVAL / 1000} seconds`);
+      this.logger.info(`File: ${name} ==> Still processing. Will check again in ${WAIT_INTERVAL / 1000} seconds`);
 
       return new Promise(resolve => setTimeout(resolve, WAIT_INTERVAL))
         .then(() => this[callApi]({ uri: `jobs/${result.id}` }))
@@ -144,7 +141,7 @@ export default class Auth0Importer {
   [postUserImport](promise, file) {
     return promise
       .then((stats) => {
-        this.logger.log(`File: ${file} ==> Sending file to Auth0`);
+        this.logger.info(`File: ${file} ==> Sending file to Auth0`);
         return this[callApi]({
           method: 'POST',
           uri: 'jobs/users-imports',
@@ -179,14 +176,14 @@ export default class Auth0Importer {
 
     if (!files || files.length === 0) return Promise.resolve({});
 
-    this.logger.log('Enumerating all files');
+    this.logger.info('Enumerating all files');
 
     return Promise.all(files.map(readFiles))
       .then(allFiles => allFiles
         .reduce((f, current) => f.concat(current), [])
         .reduce(this[postUserImport].bind(this), this[getConnection](connection, upsert, email))
         .then((results) => {
-          this.logger.log(`Finished importing ${results.files.length} files`);
+          this.logger.info(`Finished importing ${results.files.length} files`);
           return Object.assign(results, {
             endTime: Date.now()
           });

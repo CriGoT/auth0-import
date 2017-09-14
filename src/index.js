@@ -1,6 +1,6 @@
 'use strict';
 
-import util from 'util';
+import pino from 'pino';
 import program from 'commander';
 import fs from 'fs';
 import Auth0Importer from './importer';
@@ -122,6 +122,14 @@ const validateConfig = (config) => {
 export default class Auth0ImporterCli {
   constructor(options) {
     this.options = options;
+
+    this.logger = pino({
+      name: 'Auth0ImporterCli',
+      safe: true,
+      timestamp: true,
+      level: (options && options.logLevel) || 'info',
+      prettyPrint: true
+    });
   }
 
   /**
@@ -142,17 +150,14 @@ export default class Auth0ImporterCli {
         // We allow to override the client secret with environment variables
         this.config.clientSecret = process.env.AUTH0_CLIENT_SECRET || this.config.clientSecret;
 
+
         validateConfig(this.config);
 
         return new Auth0Importer({
           domain: this.config.auth0domain,
           clientId: this.config.clientId,
           clientSecret: this.config.clientSecret,
-          logger: {
-            log: addTime(console.log),
-            error: addTime(console.log),
-            debug: addTime(this.config.verbose ? console.log : () => {})
-          }
+          logger: this.logger.child({ level: (this.config.verbose ? 'debug' : 'info') })
         }).import({
           connection: this.config.connectionName,
           upsert: this.config.upsert,
