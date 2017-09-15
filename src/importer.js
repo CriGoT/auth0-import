@@ -17,18 +17,31 @@ const MS_IN_SEC = 1000;
 const RENEW_INTERVAL = 60;
 const WAIT_INTERVAL = 5 * 1000;
 const AUTH0_JOB_STATUS_PENDING = 'pending';
+const MAX_FILE_SIZE = 500000;
 const NOOP = () => {};
 
 
-const readFiles = filePattern => new Promise((resolve, reject) => {
+const readFiles = logger => filePattern => new Promise((resolve, reject) => {
   glob(filePattern, (err, files) => {
     if (err) {
       reject(err);
     } else {
+      logger.debug(files, `Pattern ${filePattern} matches the following files`);
       resolve(files);
     }
   });
 });
+
+const checkFileSize = logger => (fileName) => {
+  const size = fs.statSync(fileName).size;
+  logger.debug(`File ${fileName} size ${size} bytes`);
+  if (size > MAX_FILE_SIZE) {
+    logger.warn(`File ${fileName} exceeds the limit of 500K so it won't be processed`);
+    return false;
+  }
+
+  return true;
+};
 
 /**
  * Provides a class that imports files into an Auth0 connection
@@ -191,9 +204,10 @@ export default class Auth0Importer {
     this[getManagementToken]();
     this.logger.info('Enumerating all files');
 
-    return Promise.all((files || []).map(readFiles))
+    return Promise.all((files || []).map(readFiles(this.logger)))
       .then(allFiles => allFiles
         .reduce((f, current) => f.concat(current), [])
+        .filter(checkFileSize(this.logger))
         .reduce(this[postUserImport].bind(this), this[getConnection](connection, upsert, email))
         .then((results) => {
           this[resetTokenTimeout]();
