@@ -15,7 +15,8 @@ program
   .option('--connectionName <name>', 'Name of the connection into where the users will be imported')
   .option('--clientId <client ID>', 'Client ID to be used by auth0-import to connect to Auth0')
   .option('--clientSecret <client Secret>', 'Client Secret to be used by auth0-import to call the Management API')
-  .option('--upsert', 'Files will not only create users but also update existing ones based on email');
+  .option('--upsert', 'Files will not only create users but also update existing ones based on email')
+  .option('--email', 'Enables sending an email to admin users after each file is imported');
 
 /**
  * Prints the help in the standard output and finishes the execution
@@ -158,8 +159,8 @@ export default class Auth0ImporterCli {
           logger: this.logger.child({ level: (this.config.verbose ? 'debug' : 'info') })
         }).import({
           connection: this.config.connectionName,
-          upsert: this.config.upsert,
-          email: this.config.email
+          upsert: !!this.config.upsert,
+          email: !!this.config.email
         }, this.config.args)
           .then(displayResults)
           .then(saveResults(this.config.out))
