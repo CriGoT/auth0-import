@@ -8,10 +8,19 @@
   "bin": {
     "auth0-import": "bin/auth0-import.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CriGoT/auth0-import.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CriGoT/auth0-import/issues"
+  },
   "scripts": {
     "build": "babel src -d dist",
+    "prepublish": "npm run build",
     "start": "npm run build && node bin/auth0-import.js"
   },
+  "readme": "README.md",
   "dependencies": {
     "auth0": "^2.7.0",
     "commander": "^2.11.0",
