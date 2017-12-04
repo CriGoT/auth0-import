@@ -178,7 +178,7 @@ export default class Auth0Importer {
             },
             connection_id: stats.connection.id,
             upsert: stats.upsert.toString(),
-            email: stats.email.toString()
+            send_completion_email: stats.email.toString()
           }
         }).then(this[waitAndCheck](file, stats));
       });
